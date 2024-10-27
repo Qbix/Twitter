@@ -1,0 +1,40 @@
+{
+	"Q": {
+		"pluginInfo": {
+			"Twitter": {
+				"version": "0.2",
+				"compatible": "0.1",
+				"requires": {
+					"Q": "1.0",
+					"Users": "1.0",
+					"Streams": "1.0"
+				},
+				"permissions": [],
+				"connections": ["Users"]
+			}
+		},
+		"handlersBeforeEvent": {},
+		"handlersAfterEvent": {
+			
+		},
+		"routes@end": {},
+		"routes": {},
+		"web": {},
+		"javascript": {},
+		"text": {},
+		"images": {},
+	},
+	"Users": {
+		"apps": {
+			"telegram": {
+				"*": {
+					"appIdForAuth": "all"
+				}
+			}
+		}
+	},
+	"Streams": {},
+    "Twitter": {
+        "userAgent": "Qbix"
+    }
+}
