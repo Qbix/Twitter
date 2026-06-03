@@ -13,6 +13,9 @@
  */
 
 var Users = Q.Users;
+var T = Q.Twitter = Q.plugins.Twitter = {
+
+};
 
 // Register the slot before Users defines its authenticate sub-methods, so the
 // slot picks up the proper lazy loader during Q.Method.define.
