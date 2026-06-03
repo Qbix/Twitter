@@ -13,7 +13,9 @@
 				"connections": ["Users"]
 			}
 		},
-		"handlersBeforeEvent": {},
+		"handlersBeforeEvent": {
+			"Q/responseExtras": ["Twitter/before/Q_responseExtras"]
+		},
 		"handlersAfterEvent": {
 			
 		},
