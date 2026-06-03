@@ -44,6 +44,9 @@
 					"bearerToken": "OPTIONAL_APP_ONLY_BEARER"
 				}
 			*/ }
+		},
+		"apps-private": {
+			"twitter": ["clientSecret", "secret", "bearerToken"]
 		}
 	},
 	"Streams": {},
