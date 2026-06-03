@@ -46,7 +46,7 @@
 			*/ }
 		},
 		"apps-private": {
-			"twitter": ["clientSecret", "secret", "bearerToken"]
+			"twitter": ["clientSecret", "apiKey", "secret", "bearerToken"]
 		}
 	},
 	"Streams": {},
