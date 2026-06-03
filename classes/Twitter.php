@@ -976,4 +976,321 @@ abstract class Twitter
         }
         return $icon;
     }
+
+    // -------------------------------------------------------------------------
+    // User-context conveniences (act "as the user")
+    //
+    // Each resolves the user's Users_ExternalFrom_Twitter row via userExternalFrom()
+    // and delegates to the instance, which holds the OAuth token and does the call.
+    // $userId defaults to the logged-in user. See Users_ExternalFrom_Twitter for the
+    // request shapes, return shapes, and tier caveats (e.g. likes/bookmarks require a
+    // paid API tier as of 2025). Each needs the matching OAuth2 write scope on the
+    // user's token: tweet.write, like.write, follows.write, mute.write, block.write,
+    // bookmark.write, tweet.moderate.write, dm.write, media.write.
+    // -------------------------------------------------------------------------
+
+    /**
+     * Create a Post as the user. See Users_ExternalFrom_Twitter::postTweet for $options.
+     * @method postTweet
+     * @static
+     * @param {string} $appId
+     * @param {string} $text
+     * @param {array} [$options]
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function postTweet($appId, $text, $options = array(), $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->postTweet($text, $options) : null;
+    }
+
+    /**
+     * Delete one of the user's Posts.
+     * @method deleteTweet
+     * @static
+     * @param {string} $appId
+     * @param {string} $tweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function deleteTweet($appId, $tweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->deleteTweet($tweetId) : null;
+    }
+
+    /**
+     * Like a Post as the user.
+     * @method likeTweet
+     * @static
+     * @param {string} $appId
+     * @param {string} $tweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function likeTweet($appId, $tweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->likeTweet($tweetId) : null;
+    }
+
+    /**
+     * Remove the user's Like from a Post.
+     * @method unlikeTweet
+     * @static
+     * @param {string} $appId
+     * @param {string} $tweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function unlikeTweet($appId, $tweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->unlikeTweet($tweetId) : null;
+    }
+
+    /**
+     * Repost a Post as the user.
+     * @method retweet
+     * @static
+     * @param {string} $appId
+     * @param {string} $tweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function retweet($appId, $tweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->retweet($tweetId) : null;
+    }
+
+    /**
+     * Undo the user's Repost.
+     * @method unretweet
+     * @static
+     * @param {string} $appId
+     * @param {string} $sourceTweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function unretweet($appId, $sourceTweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->unretweet($sourceTweetId) : null;
+    }
+
+    /**
+     * Follow a user, as the user.
+     * @method followUser
+     * @static
+     * @param {string} $appId
+     * @param {string} $targetUserId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function followUser($appId, $targetUserId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->followUser($targetUserId) : null;
+    }
+
+    /**
+     * Unfollow a user, as the user.
+     * @method unfollowUser
+     * @static
+     * @param {string} $appId
+     * @param {string} $targetUserId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function unfollowUser($appId, $targetUserId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->unfollowUser($targetUserId) : null;
+    }
+
+    /**
+     * Mute a user, as the user.
+     * @method muteUser
+     * @static
+     * @param {string} $appId
+     * @param {string} $targetUserId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function muteUser($appId, $targetUserId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->muteUser($targetUserId) : null;
+    }
+
+    /**
+     * Unmute a user, as the user.
+     * @method unmuteUser
+     * @static
+     * @param {string} $appId
+     * @param {string} $targetUserId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function unmuteUser($appId, $targetUserId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->unmuteUser($targetUserId) : null;
+    }
+
+    /**
+     * Block a user, as the user.
+     * @method blockUser
+     * @static
+     * @param {string} $appId
+     * @param {string} $targetUserId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function blockUser($appId, $targetUserId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->blockUser($targetUserId) : null;
+    }
+
+    /**
+     * Unblock a user, as the user.
+     * @method unblockUser
+     * @static
+     * @param {string} $appId
+     * @param {string} $targetUserId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function unblockUser($appId, $targetUserId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->unblockUser($targetUserId) : null;
+    }
+
+    /**
+     * Bookmark a Post as the user.
+     * @method bookmarkTweet
+     * @static
+     * @param {string} $appId
+     * @param {string} $tweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function bookmarkTweet($appId, $tweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->bookmarkTweet($tweetId) : null;
+    }
+
+    /**
+     * Remove a Bookmark, as the user.
+     * @method unbookmarkTweet
+     * @static
+     * @param {string} $appId
+     * @param {string} $tweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function unbookmarkTweet($appId, $tweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->unbookmarkTweet($tweetId) : null;
+    }
+
+    /**
+     * Hide a reply to one of the user's Posts.
+     * @method hideReply
+     * @static
+     * @param {string} $appId
+     * @param {string} $tweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function hideReply($appId, $tweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->hideReply($tweetId, true) : null;
+    }
+
+    /**
+     * Unhide a previously hidden reply.
+     * @method unhideReply
+     * @static
+     * @param {string} $appId
+     * @param {string} $tweetId
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function unhideReply($appId, $tweetId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->hideReply($tweetId, false) : null;
+    }
+
+    /**
+     * Get the user's most recent bookmarked Posts.
+     * @method getBookmarks
+     * @static
+     * @param {string} $appId
+     * @param {array} [$options]
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function getBookmarks($appId, $options = array(), $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->getBookmarks($options) : null;
+    }
+
+    /**
+     * Get Posts the user has liked.
+     * @method getLikedTweets
+     * @static
+     * @param {string} $appId
+     * @param {array} [$options]
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function getLikedTweets($appId, $options = array(), $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->getLikedTweets($options) : null;
+    }
+
+    /**
+     * Send a direct message to a recipient (by xid) as the user.
+     * @method sendDirectMessage
+     * @static
+     * @param {string} $appId
+     * @param {string} $recipientXid
+     * @param {string} $text
+     * @param {array} [$options]
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function sendDirectMessage($appId, $recipientXid, $text, $options = array(), $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->sendDirectMessage($recipientXid, $text, $options) : null;
+    }
+
+    /**
+     * Upload a media file as the user; returns the decoded { data: { id, ... } }
+     * for use as a media_id in postTweet or a DM attachment.
+     * @method uploadMedia
+     * @static
+     * @param {string} $appId
+     * @param {string} $filePath
+     * @param {array} [$options] media_category, media_type
+     * @param {string} [$userId=null]
+     * @return {array|null}
+     */
+    static function uploadMedia($appId, $filePath, $options = array(), $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->uploadMedia($filePath, $options) : null;
+    }
 }

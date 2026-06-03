@@ -293,4 +293,471 @@ class Users_ExternalFrom_Twitter extends Users_ExternalFrom implements Users_Ext
 			return false;
 		}
 	}
+
+	// -------------------------------------------------------------------------
+	// User-context write/action API (X API v2), all using THIS row's user token.
+	// For self-scoped endpoints the authenticating user's id is $this->xid.
+	// Twitter::<method>($appId, ..., $userId) conveniences resolve a row and call
+	// these. Some endpoints are tier-gated (e.g. likes create and bookmarks need a
+	// paid API tier as of 2025); they return X's error envelope unchanged.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Create a Post (optionally a reply, quote, with media or a poll).
+	 * @method postTweet
+	 * @param {string} $text
+	 * @param {array} [$options]
+	 *   reply_to, exclude_reply_user_ids, quote_tweet_id, media_ids, tagged_user_ids,
+	 *   poll_options, poll_duration_minutes, reply_settings, for_super_followers_only,
+	 *   community_id, body (raw merge escape hatch)
+	 * @return {array|null} decoded { data: { id, text }, ... }
+	 */
+	function postTweet($text, $options = array())
+	{
+		$body = array();
+		if (strlen($text)) {
+			$body['text'] = $text;
+		}
+		if (!empty($options['reply_to'])) {
+			$body['reply'] = array('in_reply_to_tweet_id' => $options['reply_to']);
+			if (!empty($options['exclude_reply_user_ids'])) {
+				$body['reply']['exclude_reply_user_ids'] = (array)$options['exclude_reply_user_ids'];
+			}
+		}
+		if (!empty($options['quote_tweet_id'])) {
+			$body['quote_tweet_id'] = $options['quote_tweet_id'];
+		}
+		if (!empty($options['media_ids'])) {
+			$body['media'] = array('media_ids' => (array)$options['media_ids']);
+			if (!empty($options['tagged_user_ids'])) {
+				$body['media']['tagged_user_ids'] = (array)$options['tagged_user_ids'];
+			}
+		}
+		if (!empty($options['poll_options'])) {
+			$body['poll'] = array(
+				'options'          => (array)$options['poll_options'],
+				'duration_minutes' => intval(Q::ifset($options, 'poll_duration_minutes', 1440)),
+			);
+		}
+		if (!empty($options['reply_settings'])) {
+			$body['reply_settings'] = $options['reply_settings'];
+		}
+		if (!empty($options['for_super_followers_only'])) {
+			$body['for_super_followers_only'] = true;
+		}
+		if (!empty($options['community_id'])) {
+			$body['community_id'] = $options['community_id'];
+		}
+		if (!empty($options['body']) && is_array($options['body'])) {
+			$body = array_merge($body, $options['body']);
+		}
+		return $this->apiRequest('POST', 'https://api.x.com/2/tweets', $body);
+	}
+
+	/**
+	 * Delete one of the authenticating user's Posts.
+	 * @method deleteTweet
+	 * @param {string} $tweetId
+	 * @return {array|null} decoded { data: { deleted: true } }
+	 */
+	function deleteTweet($tweetId)
+	{
+		return $this->apiRequest('DELETE',
+			'https://api.x.com/2/tweets/' . rawurlencode($tweetId));
+	}
+
+	/**
+	 * Like a Post. (Create-like is restricted to paid API tiers as of 2025.)
+	 * @method likeTweet
+	 * @param {string} $tweetId
+	 * @return {array|null} decoded { data: { liked: true } }
+	 */
+	function likeTweet($tweetId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('POST',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid) . '/likes',
+			array('tweet_id' => (string)$tweetId));
+	}
+
+	/**
+	 * Remove a Like.
+	 * @method unlikeTweet
+	 * @param {string} $tweetId
+	 * @return {array|null} decoded { data: { liked: false } }
+	 */
+	function unlikeTweet($tweetId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('DELETE',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid)
+			. '/likes/' . rawurlencode($tweetId));
+	}
+
+	/**
+	 * Repost (retweet) a Post.
+	 * @method retweet
+	 * @param {string} $tweetId
+	 * @return {array|null} decoded { data: { retweeted: true } }
+	 */
+	function retweet($tweetId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('POST',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid) . '/retweets',
+			array('tweet_id' => (string)$tweetId));
+	}
+
+	/**
+	 * Undo a Repost.
+	 * @method unretweet
+	 * @param {string} $sourceTweetId
+	 * @return {array|null} decoded { data: { retweeted: false } }
+	 */
+	function unretweet($sourceTweetId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('DELETE',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid)
+			. '/retweets/' . rawurlencode($sourceTweetId));
+	}
+
+	/**
+	 * Follow a user. If the target is protected, this sends a follow request.
+	 * @method followUser
+	 * @param {string} $targetUserId
+	 * @return {array|null} decoded { data: { following: bool, pending_follow: bool } }
+	 */
+	function followUser($targetUserId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('POST',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid) . '/following',
+			array('target_user_id' => (string)$targetUserId));
+	}
+
+	/**
+	 * Unfollow a user.
+	 * @method unfollowUser
+	 * @param {string} $targetUserId
+	 * @return {array|null} decoded { data: { following: false } }
+	 */
+	function unfollowUser($targetUserId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('DELETE',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid)
+			. '/following/' . rawurlencode($targetUserId));
+	}
+
+	/**
+	 * Mute a user.
+	 * @method muteUser
+	 * @param {string} $targetUserId
+	 * @return {array|null} decoded { data: { muting: true } }
+	 */
+	function muteUser($targetUserId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('POST',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid) . '/muting',
+			array('target_user_id' => (string)$targetUserId));
+	}
+
+	/**
+	 * Unmute a user.
+	 * @method unmuteUser
+	 * @param {string} $targetUserId
+	 * @return {array|null} decoded { data: { muting: false } }
+	 */
+	function unmuteUser($targetUserId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('DELETE',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid)
+			. '/muting/' . rawurlencode($targetUserId));
+	}
+
+	/**
+	 * Block a user.
+	 * @method blockUser
+	 * @param {string} $targetUserId
+	 * @return {array|null} decoded { data: { blocking: true } }
+	 */
+	function blockUser($targetUserId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('POST',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid) . '/blocking',
+			array('target_user_id' => (string)$targetUserId));
+	}
+
+	/**
+	 * Unblock a user.
+	 * @method unblockUser
+	 * @param {string} $targetUserId
+	 * @return {array|null} decoded { data: { blocking: false } }
+	 */
+	function unblockUser($targetUserId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('DELETE',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid)
+			. '/blocking/' . rawurlencode($targetUserId));
+	}
+
+	/**
+	 * Bookmark a Post. (Bookmark endpoints require a paid API tier as of 2025.)
+	 * @method bookmarkTweet
+	 * @param {string} $tweetId
+	 * @return {array|null} decoded { data: { bookmarked: true } }
+	 */
+	function bookmarkTweet($tweetId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('POST',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid) . '/bookmarks',
+			array('tweet_id' => (string)$tweetId));
+	}
+
+	/**
+	 * Remove a Bookmark.
+	 * @method unbookmarkTweet
+	 * @param {string} $tweetId
+	 * @return {array|null} decoded { data: { bookmarked: false } }
+	 */
+	function unbookmarkTweet($tweetId)
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		return $this->apiRequest('DELETE',
+			'https://api.x.com/2/users/' . rawurlencode($this->xid)
+			. '/bookmarks/' . rawurlencode($tweetId));
+	}
+
+	/**
+	 * Hide or unhide a reply to one of the authenticating user's Posts.
+	 * @method hideReply
+	 * @param {string} $tweetId The reply's id
+	 * @param {boolean} [$hidden=true]
+	 * @return {array|null} decoded { data: { hidden: bool } }
+	 */
+	function hideReply($tweetId, $hidden = true)
+	{
+		return $this->apiRequest('PUT',
+			'https://api.x.com/2/tweets/' . rawurlencode($tweetId) . '/hidden',
+			array('hidden' => (bool)$hidden));
+	}
+
+	/**
+	 * Convenience: unhide a previously hidden reply.
+	 * @method unhideReply
+	 * @param {string} $tweetId
+	 * @return {array|null}
+	 */
+	function unhideReply($tweetId)
+	{
+		return $this->hideReply($tweetId, false);
+	}
+
+	/**
+	 * The authenticating user's most recent bookmarked Posts.
+	 * @method getBookmarks
+	 * @param {array} [$options] max_results, pagination_token, tweet.fields, expansions, ...
+	 * @return {array|null}
+	 */
+	function getBookmarks($options = array())
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		$url = 'https://api.x.com/2/users/' . rawurlencode($this->xid) . '/bookmarks';
+		$qs = $this->buildQuery($options);
+		return $this->apiRequest('GET', $qs ? "$url?$qs" : $url);
+	}
+
+	/**
+	 * Posts liked by the authenticating user.
+	 * @method getLikedTweets
+	 * @param {array} [$options] max_results, pagination_token, tweet.fields, expansions, ...
+	 * @return {array|null}
+	 */
+	function getLikedTweets($options = array())
+	{
+		if (!$this->xid) {
+			return null;
+		}
+		$url = 'https://api.x.com/2/users/' . rawurlencode($this->xid) . '/liked_tweets';
+		$qs = $this->buildQuery($options);
+		return $this->apiRequest('GET', $qs ? "$url?$qs" : $url);
+	}
+
+	/**
+	 * Send a direct message to a recipient (by their xid) as this user. General
+	 * counterpart to handlePushNotification, which targets this row's own user.
+	 * @method sendDirectMessage
+	 * @param {string} $recipientXid
+	 * @param {string} $text
+	 * @param {array} [$options] attachments (array of { media_id })
+	 * @return {array|null} decoded { data: { dm_conversation_id, dm_event_id } }
+	 */
+	function sendDirectMessage($recipientXid, $text, $options = array())
+	{
+		if (!$recipientXid || !strlen($text)) {
+			return null;
+		}
+		$body = array('text' => $text);
+		if (!empty($options['attachments'])) {
+			$body['attachments'] = $options['attachments'];
+		}
+		return $this->apiRequest('POST',
+			'https://api.x.com/2/dm_conversations/with/'
+			. rawurlencode($recipientXid) . '/messages', $body);
+	}
+
+	/**
+	 * Upload a single media file (image/GIF) via the v2 endpoint and return its id,
+	 * for use in postTweet(['media_ids' => [...]]) or DM attachments. Requires the
+	 * media.write scope. This is the simple single-request path; large video needs
+	 * the chunked INIT/APPEND/FINALIZE flow, not implemented here.
+	 * @method uploadMedia
+	 * @param {string} $filePath Absolute path to a readable file
+	 * @param {array} [$options] media_category (default 'tweet_image'), media_type (MIME)
+	 * @return {array|null} decoded { data: { id, media_key, ... } }
+	 */
+	function uploadMedia($filePath, $options = array())
+	{
+		if (!$this->accessToken || !is_readable($filePath)) {
+			return null;
+		}
+		$mimeType = Q::ifset($options, 'media_type', null);
+		$fields = array(
+			'media' => class_exists('CURLFile')
+				? new CURLFile($filePath, $mimeType ? $mimeType : null)
+				: '@' . $filePath,
+			'media_category' => Q::ifset($options, 'media_category', 'tweet_image'),
+		);
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, 'https://api.x.com/2/media/upload');
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_POST, true);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $fields); // multipart/form-data
+		curl_setopt($ch, CURLOPT_USERAGENT,
+			Q_Config::get('Twitter', 'userAgent', 'Qbix', null));
+		curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+			'Authorization: Bearer ' . $this->accessToken,
+			'Accept: application/json',
+		));
+		$response = curl_exec($ch);
+		curl_close($ch);
+		if ($response === false) {
+			return null;
+		}
+		return Q::json_decode($response, true);
+	}
+
+	/**
+	 * Issue an authenticated X API v2 request with this row's user token. GET/POST
+	 * go through Q_Utils (matching the rest of the plugin); DELETE/PUT use curl,
+	 * since Q_Utils has no verb-specific helper for those.
+	 * @method apiRequest
+	 * @protected
+	 * @param {string} $method GET|POST|DELETE|PUT
+	 * @param {string} $url Full https://api.x.com/2/... url
+	 * @param {array|string|null} [$body] JSON-encoded if an array
+	 * @return {array|null} decoded response, or null on transport failure / missing token
+	 */
+	protected function apiRequest($method, $url, $body = null)
+	{
+		if (!$this->accessToken) {
+			return null;
+		}
+		$method = strtoupper($method);
+		$userAgent = Q_Config::get('Twitter', 'userAgent', 'Qbix', null);
+		if ($method === 'GET') {
+			$response = Q_Utils::get($url, $userAgent, [], array(
+				'Authorization' => 'Bearer ' . $this->accessToken,
+				'Accept'        => 'application/json',
+			), 30, false);
+		} else if ($method === 'POST') {
+			$payload = ($body === null)
+				? ''
+				: (is_string($body) ? $body : Q::json_encode($body));
+			$response = Q_Utils::post($url, $payload, $userAgent, [], array(
+				'Authorization: Bearer ' . $this->accessToken,
+				'Content-Type: application/json',
+				'Accept: application/json',
+			), 30, false);
+		} else {
+			$ch = curl_init();
+			$headers = array(
+				'Authorization: Bearer ' . $this->accessToken,
+				'Accept: application/json',
+			);
+			curl_setopt($ch, CURLOPT_URL, $url);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+			curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
+			curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+			if ($body !== null) {
+				$headers[] = 'Content-Type: application/json';
+				curl_setopt($ch, CURLOPT_POSTFIELDS,
+					is_string($body) ? $body : Q::json_encode($body));
+			}
+			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+			$response = curl_exec($ch);
+			curl_close($ch);
+			if ($response === false) {
+				return null;
+			}
+		}
+		return Q::json_decode($response, true);
+	}
+
+	/**
+	 * Build a query string from an options array: arrays become comma-joined
+	 * (X v2 field/expansion lists), scalars are urlencoded.
+	 * @method buildQuery
+	 * @protected
+	 * @param {array} $options
+	 * @return {string}
+	 */
+	protected function buildQuery($options)
+	{
+		$parts = array();
+		foreach ($options as $k => $v) {
+			if (is_array($v)) {
+				if ($v) {
+					$parts[] = "$k=" . implode(',', $v);
+				}
+			} else if ($v !== null && $v !== '') {
+				$parts[] = "$k=" . urlencode($v);
+			}
+		}
+		return implode('&', $parts);
+	}
 }
