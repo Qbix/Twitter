@@ -15,10 +15,10 @@
  *
  * The OAuth round trip happens in the Users/oauth handler (popup). By the time
  * this adapter's authenticate() runs on the opener, the handler has exchanged the
- * code, resolved the xid, and staged the tokens in a server-only Users_ExternalFrom
- * row keyed (twitter, appId, xid). This adapter locates that staged row from the
- * intent, returns a fresh ExternalFrom (userId unset, like Facebook), and lets
- * Users::authenticate own the DB writes.
+ * code, resolved the xid, and stashed the tokens + profile subset on the intent
+ * itself (server-side instructions, never exported). This adapter reads them off
+ * the intent, returns a fresh ExternalFrom (userId unset, like Facebook), and lets
+ * Users::authenticate own the DB writes and complete the intent.
  *
  * @class Users_ExternalFrom_Twitter
  * @extends Users_ExternalFrom
@@ -56,10 +56,13 @@ class Users_ExternalFrom_Twitter extends Users_ExternalFrom implements Users_Ext
 		}
 
 		$intent = Users_Intent::fromToken($token);
-		if (!$intent || empty($intent->completedTime)) {
-			return null; // user canceled, or flow not finished
+		if (!$intent || !$intent->isValid()) {
+			return null; // stale or forged token
 		}
 
+		// The xid is set by the OAuth callback once the handshake succeeds. Its
+		// presence (not completedTime) is the proof we can log in: completion happens
+		// below, inside Users::authenticate, which stamps loggedInUserId into results.
 		$xid = $intent->getInstruction('xid');
 		if (!$xid) {
 			$results = $intent->getInstruction('results');
@@ -69,25 +72,12 @@ class Users_ExternalFrom_Twitter extends Users_ExternalFrom implements Users_Ext
 			return null;
 		}
 
-		// Read the staged row (tokens + profile subset), then remove it so that
-		// Users::authenticate inserts a clean row with the correct userId,
-		// exactly like the Facebook/Telegram adapters do.
-		$staged = new Users_ExternalFrom_Twitter();
-		$staged->platform = 'twitter';
-		$staged->appId    = $appId;
-		$staged->xid      = $xid;
-		if (!$staged->retrieve()) {
-			return null;
-		}
-		$accessToken = $staged->accessToken;
-		$expires     = $staged->expires;
-		$extra       = isset($staged->extra) ? $staged->extra : null;
-
-		Users_ExternalFrom::delete()->where(array(
-			'platform' => 'twitter',
-			'appId'    => $appId,
-			'xid'      => $xid
-		))->execute();
+		// Phase 2 stashed the tokens + profile subset on the intent itself. Build the
+		// row from that, but DO NOT save it: Users::authenticate finds/creates the
+		// user, saves this row with the right userId (running the From->To mirror),
+		// then completes the intent via the intent/results we set below.
+		$oauth = $intent->getInstruction('oauth');
+		$oauth = is_array($oauth) ? $oauth : array();
 
 		$ef = new Users_ExternalFrom_Twitter();
 		// note that $ef->userId is intentionally not set
@@ -95,12 +85,24 @@ class Users_ExternalFrom_Twitter extends Users_ExternalFrom implements Users_Ext
 		$ef->appId        = $appId;
 		$ef->xid          = $xid;
 		$ef->responseType = 'code';
-		$ef->accessToken  = $accessToken;
-		$ef->expires      = $expires;
-		if ($extra) {
-			// carries refreshToken + the small profile subset (no columns of their own)
-			$ef->extra = is_string($extra) ? $extra : Q::json_encode($extra, Q::JSON_FORCE_OBJECT);
+		$ef->accessToken  = Q::ifset($oauth, 'accessToken', null);
+		$ef->expires      = Q::ifset($oauth, 'expires', null);
+		if (!empty($oauth['refreshToken'])) {
+			$ef->setExtra('refreshToken', $oauth['refreshToken']);
 		}
+		if (!empty($oauth['profile'])) {
+			$ef->setExtra('profile', $oauth['profile']);
+		}
+
+		// tokens now live on the row; drop them from the intent so they don't
+		// linger once the imminent complete() saves it.
+		$intent->clearInstruction('oauth');
+
+		// Carry the intent so Users::authenticate completes it (stamping
+		// loggedInUserId into results) after the user is found/created, exactly
+		// like the Telegram adapter does.
+		$ef->set('intent', $intent);
+		$ef->set('results', array());
 		return $ef;
 	}
 

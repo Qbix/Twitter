@@ -26,6 +26,9 @@ Q.exports(function (Users, priv) {
 
 		Users.OAuth.start(platform, scope, function (err, result) {
 			if (err || !result) {
+				// the token was consumed (or half-consumed); provision a fresh one
+				// so the next attempt has a usable intent ready in the gesture
+				Users.Intent.provision('Users/authenticate', platform, appId);
 				priv._doCancel(platform, appId, null, onSuccess, onCancel, options);
 				return;
 			}
