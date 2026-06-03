@@ -53,6 +53,9 @@
 	},
 	"Streams": {},
     "Twitter": {
-        "userAgent": "Qbix"
+        "userAgent": "Qbix",
+        "importUsers": {
+            "minimumFollowersCount": 10000
+        }
     }
 }

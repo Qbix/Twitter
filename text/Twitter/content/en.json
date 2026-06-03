@@ -1,0 +1,12 @@
+{
+    "types": {
+        "Twitter/content": {
+            "types": {
+                "Twitter\/profile": {
+                    "displayType": "Twitter Profile",
+                    "description": "a profile of a twitter user who was imported as a future user"
+                }
+            }
+        }
+    }
+}
