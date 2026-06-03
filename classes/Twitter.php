@@ -881,4 +881,99 @@ abstract class Twitter
         }
         return $arr;
     }
+
+    /**
+     * The authenticated profile of a user who logged in with Twitter, fetched with that
+     * user's own OAuth token. Resolves the user's Users_ExternalFrom_Twitter row
+     * and delegates to it.
+     * @method getMe
+     * @static
+     * @param {string} $appId
+     * @param {string} [$userId=null] Defaults to the logged-in user
+     * @return {array|null} e.g. { id, name, username, profile_image_url }
+     */
+    static function getMe($appId, $userId = null)
+    {
+        $ef = self::userExternalFrom($appId, $userId);
+        return $ef ? $ef->getMe() : null;
+    }
+
+    /**
+     * Resolve the Users_ExternalFrom_Twitter row (hence the access token) for a
+     * user. Two indexed lookups: Users_ExternalTo by (userId, platform, appId) to
+     * get the xid, then Users_ExternalFrom by its PK — From is authoritative for
+     * the token. Both are ORM-cacheable. Other user-context helpers (post as user,
+     * etc.) should resolve through here and call the returned instance.
+     * @method userExternalFrom
+     * @static
+     * @param {string} $appId
+     * @param {string} [$userId=null] Defaults to the logged-in user
+     * @return {Users_ExternalFrom_Twitter|null}
+     */
+    static function userExternalFrom($appId, $userId = null)
+    {
+        list($appId, $info) = Users::appInfo('twitter', $appId, true);
+        if (!$userId) {
+            $user = Users::loggedInUser();
+            if (!$user) {
+                return null;
+            }
+            $userId = $user->id;
+        }
+        $to = new Users_ExternalTo();
+        $to->userId   = $userId;
+        $to->platform = 'twitter';
+        $to->appId    = $appId;
+        if (!$to->retrieve() || empty($to->xid)) {
+            return null;
+        }
+        $ef = new Users_ExternalFrom_Twitter();
+        $ef->platform = 'twitter';
+        $ef->appId    = $appId;
+        $ef->xid      = $to->xid;
+        return $ef->retrieve() ? $ef : null;
+    }
+
+    /**
+     * Upgrade an X profile image url to a larger variant ("_normal" -> "_400x400").
+     * Pure transform, no token needed.
+     * @method userIconUrl
+     * @static
+     * @param {array} $profile
+     * @return {string|null}
+     */
+    static function userIconUrl($profile)
+    {
+        $url = Q::ifset($profile, 'profile_image_url', null);
+        if (!$url) {
+            return null;
+        }
+        return preg_replace('/_normal(\.\w+)$/', '_400x400$1', $url);
+    }
+
+    /**
+     * Build a size => url icon map from a Twitter profile. Twitter exposes one avatar url, so
+     * each requested size maps to the same (upgraded) url. Pure transform.
+     * @method userIcon
+     * @static
+     * @param {array} $profile
+     * @param {array} [$sizes=Q_Image::getSizes('Users/icon')]
+     * @param {string} [$suffix='']
+     * @return {array}
+     */
+    static function userIcon($profile, $sizes = null, $suffix = '')
+    {
+        $url = self::userIconUrl($profile);
+        if (!$url) {
+            return array();
+        }
+        if (!isset($sizes)) {
+            $sizes = array_keys(Q_Image::getSizes('Users/icon'));
+        }
+        $icon = array();
+        foreach ($sizes as $size) {
+            $icon[$size . $suffix] = $url;
+        }
+        return $icon;
+    }
 }
