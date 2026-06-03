@@ -49,7 +49,7 @@ class Users_ExternalFrom_Twitter extends Users_ExternalFrom implements Users_Ext
 			$token = $payload;
 		}
 		if (!$token) {
-			$token = Q_Request::get('intent', null);
+			$token = Q::ifset($_POST, 'intent', Q::ifset($_GET, 'intent', null));
 		}
 		if (!$token) {
 			return null;
