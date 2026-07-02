@@ -13,7 +13,9 @@
 				"connections": ["Users"]
 			}
 		},
-		"handlersBeforeEvent": {},
+		"handlersBeforeEvent": {
+			"Q/responseExtras": ["Twitter/before/Q_responseExtras"]
+		},
 		"handlersAfterEvent": {
 			
 		},
@@ -26,11 +28,27 @@
 	},
 	"Users": {
 		"apps": {
-			"telegram": {
-				"*": {
-					"appIdForAuth": "all"
+			"twitter": { /*
+				"MyApp": {
+					"appId": "MyApp",
+					"clientId": "PASTE_X_OAUTH2_CLIENT_ID",
+					"clientSecret": "PASTE_X_OAUTH2_CLIENT_SECRET_OR_OMIT_FOR_PUBLIC_PKCE",
+					"oauth2": {
+						"authorizationUrl": "https://twitter.com/i/oauth2/authorize",
+						"tokenUrl": "https://api.twitter.com/2/oauth2/token",
+						"revokeUrl": "https://api.twitter.com/2/oauth2/revoke",
+						"scopes": ["tweet.read", "users.read", "offline.access"],
+						"redirectUri": "https://your.host/Users/oauth",
+						"pkce": true
+					},
+					"apiKey": "OPTIONAL_LEGACY_1_0A_KEY",
+					"secret": "OPTIONAL_LEGACY_1_0A_SECRET",
+					"bearerToken": "OPTIONAL_APP_ONLY_BEARER"
 				}
-			}
+			*/ }
+		},
+		"apps-private": {
+			"twitter": ["clientSecret", "apiKey", "secret", "bearerToken"]
 		}
 	},
 	"Streams": {},
